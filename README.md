@@ -1,4 +1,4 @@
-# ✍️ AirScribe — Air-Writing Rehabilitation
+#  AirScribe — Air-Writing Rehabilitation
 
 A browser-based hand rehabilitation game for stroke patients. Write letters in the air with your index finger while a webcam tracks your movement in real time — no video ever leaves your device.
 
@@ -8,14 +8,14 @@ A browser-based hand rehabilitation game for stroke patients. Write letters in t
 
 | | |
 |---|---|
-| 🤚 **In-browser hand tracking** | MediaPipe HandLandmarker runs entirely client-side |
-| 📹 **Privacy-first** | Only fingertip XY coordinates are sent to the server |
-| 🎮 **Practice game loop** | Letter-by-letter practice with live trail feedback |
-| 📊 **Progress dashboard** | Streaks, weekly goals, accuracy trends, per-letter performance |
-| 🩺 **Clinician view** | Linked patients' progress charts (read-only) |
-| 🌙 **Light & dark mode** | Respects system preference, toggleable in navbar |
-| ♿ **Accessible** | 44px min touch targets, keyboard navigation, `aria-live` regions |
-| 🧪 **Mock mode** | Full frontend works without a backend (`VITE_USE_MOCK=true`) |
+|  **In-browser hand tracking** | MediaPipe HandLandmarker runs entirely client-side |
+|  **Privacy-first** | Only fingertip XY coordinates are sent to the server |
+|  **Practice game loop** | Letter-by-letter practice with live trail feedback |
+|  **Progress dashboard** | Streaks, weekly goals, accuracy trends, per-letter performance |
+|  **Clinician view** | Linked patients' progress charts (read-only) |
+|  **Light & dark mode** | Respects system preference, toggleable in navbar |
+|  **Accessible** | 44px min touch targets, keyboard navigation, `aria-live` regions |
+|  **Mock mode** | Full frontend works without a backend (`VITE_USE_MOCK=true`) |
 
 ---
 
