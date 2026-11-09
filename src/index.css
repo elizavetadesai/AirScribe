@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ───────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --color-bg:       #faf6f0;
+    --color-surface:  #fefcf9;
+    --color-border:   #e8dece;
+    --color-text:     #2c2018;
+    --color-muted:    #7a6a56;
+    --color-forest:   #1f4f36;
+    --color-sand:     #c4986a;
+    --canvas-bg:      #f7f2eb;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .dark {
+    --color-bg:       #131009;
+    --color-surface:  #1c1710;
+    --color-border:   #2e2619;
+    --color-text:     #f0e8dc;
+    --color-muted:    #9e8e78;
+    --color-forest:   #4a9068;
+    --color-sand:     #c4986a;
+    --canvas-bg:      #1c1710;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-forest);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Native dialog reset */
+  dialog {
+    padding: 0;
+    border: none;
+    max-height: 92vh;
+    overflow-y: auto;
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  dialog::backdrop {
+    background: rgba(20, 14, 8, 0.6);
+    backdrop-filter: blur(3px);
+  }
+
+  /* Thin scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(100, 80, 50, 0.25);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 80, 50, 0.5);
+  }
+
+  ::selection {
+    background: rgba(31, 79, 54, 0.15);
+    color: inherit;
+  }
+}
+
+/* ── Utility classes ─────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Uppercase tracking label — matches inspiration typography */
+  .label-caps {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .display-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .surface-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Recharts theming ────────────────────────────────────────────────────────── */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  border-radius: 8px !important;
+}
