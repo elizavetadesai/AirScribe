@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Alert } from '../components/ui/Alert'
@@ -48,7 +48,7 @@ export default function Auth() {
             Rehabilitation<br />through motion.
           </h1>
           <p className="text-forest-300 text-sm leading-relaxed max-w-xs">
-            Write letters in the air with your index finger. Your browser tracks every movement — privately, in real time, without recording any video.
+            Draw shapes and letters in the air with your index finger. Your browser tracks every movement — privately, in real time, without recording any video.
           </p>
         </div>
         <p className="text-xs text-forest-500 leading-relaxed max-w-xs">
@@ -164,6 +164,11 @@ export default function Auth() {
               {mode === 'login' ? 'Log in' : 'Create account'}
             </Button>
           </form>
+
+          <p className="mt-6 text-xs text-[var(--color-muted)]">
+            Recording training data for the project?{' '}
+            <Link to="/collect" className="underline hover:text-[var(--color-text)]">Open the data-collection page</Link>
+          </p>
 
           {/* Mobile disclaimer */}
           <p className="lg:hidden mt-8 text-xs text-[var(--color-muted)] leading-relaxed">

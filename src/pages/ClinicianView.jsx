@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { getPatients, getPatientHistory } from '../api/endpoints'
+import { getPatients, getPatientHistory, linkPatient } from '../api/endpoints'
+import { Button } from '../components/ui/Button'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
 import { Alert } from '../components/ui/Alert'
 import { LoadingOverlay } from '../components/ui/Spinner'
 import { Badge } from '../components/ui/Badge'
 import { TrendLine } from '../components/charts/TrendLine'
 import { LetterHeatmap } from '../components/charts/LetterHeatmap'
-import { LETTERS } from '../config/letters'
+import { LETTERS } from '../config/targets'
 
 function formatRelative(iso) {
+  if (!iso) return 'never'
   const diff = Date.now() - new Date(iso)
   const h = Math.floor(diff / 3600000)
   if (h < 1) return 'just now'
@@ -58,6 +60,27 @@ export default function ClinicianView() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState(null)
 
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState(null)
+
+  async function handleLink(e) {
+    e.preventDefault()
+    if (!linkEmail.trim()) return
+    setLinking(true)
+    setLinkError(null)
+    try {
+      const p = await linkPatient(linkEmail.trim())
+      setPatients(prev => (prev.some(x => x.id === p.id) ? prev : [...prev, p]))
+      setSelectedId(p.id)
+      setLinkEmail('')
+    } catch (err) {
+      setLinkError(err.message)
+    } finally {
+      setLinking(false)
+    }
+  }
+
   useEffect(() => {
     getPatients()
       .then(setPatients)
@@ -106,11 +129,29 @@ export default function ClinicianView() {
         <div className="space-y-3">
           <span className="label-caps block">Your patients</span>
 
+          <form onSubmit={handleLink} className="space-y-2" aria-label="Add a patient">
+            <label htmlFor="link-email" className="text-xs text-[var(--color-muted)] block">
+              Add a patient by the email they signed up with
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="link-email"
+                type="email"
+                value={linkEmail}
+                onChange={e => setLinkEmail(e.target.value)}
+                placeholder="patient@example.com"
+                className="flex-1 min-w-0 h-11 px-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-forest-600"
+              />
+              <Button type="submit" size="md" loading={linking}>Add</Button>
+            </div>
+            {linkError && <Alert variant="error">{linkError}</Alert>}
+          </form>
+
           {patients.length === 0 && (
             <Card className="py-10 text-center">
               <p className="label-caps">No patients linked yet.</p>
               <p className="text-xs text-[var(--color-muted)] mt-2 leading-relaxed">
-                Patients are linked to your account by the backend system.
+                Add a patient above to see their progress.
               </p>
             </Card>
           )}
@@ -188,7 +229,7 @@ export default function ClinicianView() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Per-letter accuracy</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Per-recognised correctly</CardTitle></CardHeader>
                 <LetterHeatmap data={letterData} />
               </Card>
             </>

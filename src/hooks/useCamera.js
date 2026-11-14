@@ -2,8 +2,9 @@ import { useState, useRef, useCallback } from 'react'
 
 /**
  * Manages webcam access via getUserMedia.
- * Returns videoRef to attach to a <video> element,
- * plus loading/error state and a stop function.
+ * Returns videoRef (read it for the current <video>), attachVideo (pass it as
+ * the <video> ref so the stream is connected even if the element mounts after
+ * the camera started), plus loading/error state and a stop function.
  */
 export function useCamera() {
   const videoRef = useRef(null)
@@ -12,6 +13,15 @@ export function useCamera() {
   const [error, setError] = useState(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [active, setActive] = useState(false)
+
+  // Callback ref: whenever a <video> mounts, connect the running stream to it.
+  const attachVideo = useCallback((el) => {
+    videoRef.current = el
+    if (el && streamRef.current && el.srcObject !== streamRef.current) {
+      el.srcObject = streamRef.current
+      el.play().catch(() => {})
+    }
+  }, [])
 
   const start = useCallback(async () => {
     setLoading(true)
@@ -58,5 +68,5 @@ export function useCamera() {
     setActive(false)
   }, [])
 
-  return { videoRef, loading, error, permissionDenied, active, start, stop }
+  return { videoRef, attachVideo, loading, error, permissionDenied, active, start, stop }
 }

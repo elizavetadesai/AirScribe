@@ -6,7 +6,8 @@ import { LoadingOverlay } from '../components/ui/Spinner'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { TrailReplay } from '../components/practice/TrailReplay'
-import { LETTERS } from '../config/letters'
+import { TARGETS, targetName } from '../config/targets'
+import { TargetGlyph } from '../components/practice/TargetGlyph'
 
 function formatDate(iso) {
   return new Date(iso).toLocaleString('en', {
@@ -58,10 +59,10 @@ export default function History() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2">
-          <label htmlFor="filter-letter" className="label-caps">Letter</label>
+          <label htmlFor="filter-letter" className="label-caps">Target</label>
           <select id="filter-letter" value={filterLetter} onChange={e => setFilterLetter(e.target.value)} className={selectStyle}>
             <option value="all">All</option>
-            {LETTERS.map(l => <option key={l} value={l}>{l}</option>)}
+            {TARGETS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -123,22 +124,24 @@ export default function History() {
                       onClick={() => setSelected(session)}
                       tabIndex={0}
                       onKeyDown={e => e.key === 'Enter' && setSelected(session)}
-                      aria-label={`Session for letter ${session.target_letter} on ${formatDate(session.created)}`}
+                      aria-label={`Attempt at ${targetName(session.target_letter)} on ${formatDate(session.created)}`}
                     >
                       <td className="px-4 py-3 text-[var(--color-muted)] whitespace-nowrap text-xs">
                         {formatDate(session.created)}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-display text-2xl font-bold text-[var(--color-text)]">
-                          {session.target_letter}
+                        <span className="inline-flex items-center gap-2 text-[var(--color-text)]">
+                          <TargetGlyph id={session.target_letter} size={28} />
+                          <span className="text-xs">{targetName(session.target_letter)}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className="font-display text-2xl font-bold"
+                          className="inline-flex items-center gap-2"
                           style={{ color: correct ? '#1f4f36' : '#b8824e' }}
                         >
-                          {session.predicted_letter}
+                          <TargetGlyph id={session.predicted_letter} size={28} />
+                          <span className="text-xs">{targetName(session.predicted_letter)}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -147,10 +150,10 @@ export default function History() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 font-medium text-[var(--color-text)]">
-                        {session.accuracy_score}
+                        {Math.round(session.accuracy_score)}
                       </td>
                       <td className="px-4 py-3 font-medium text-[var(--color-text)]">
-                        {session.smoothness_score}
+                        {Math.round(session.smoothness_score)}
                       </td>
                       <td className="px-4 py-3 label-caps text-forest-700 dark:text-forest-400">
                         View
@@ -168,7 +171,7 @@ export default function History() {
       <Modal
         open={!!selected}
         onClose={() => setSelected(null)}
-        title={selected ? `Session — Letter "${selected.target_letter}"` : ''}
+        title={selected ? `Attempt — ${targetName(selected.target_letter)}` : ''}
         size="md"
       >
         {selected && (
@@ -176,7 +179,7 @@ export default function History() {
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="label-caps">{formatDate(selected.created)}</span>
               <Badge variant={selected.target_letter === selected.predicted_letter ? 'success' : 'warning'}>
-                Predicted: {selected.predicted_letter}
+                Recognised as: {targetName(selected.predicted_letter)}
               </Badge>
               <Badge variant="primary">
                 {Math.round(selected.confidence * 100)}% confidence
@@ -186,7 +189,7 @@ export default function History() {
             <div className="flex justify-center">
               <TrailReplay
                 points={selected.points || []}
-                letter={selected.target_letter}
+                target={selected.target_letter}
                 size={240}
                 color={selected.target_letter === selected.predicted_letter ? '#1f4f36' : '#b8824e'}
               />
@@ -194,8 +197,8 @@ export default function History() {
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Shape accuracy', value: selected.accuracy_score },
-                { label: 'Smoothness', value: selected.smoothness_score },
+                { label: 'Shape accuracy', value: Math.round(selected.accuracy_score) },
+                { label: 'Smoothness', value: Math.round(selected.smoothness_score) },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-cream-100 dark:bg-bark-800 rounded p-4 text-center">
                   <div className="font-display text-3xl font-bold text-forest-700 dark:text-forest-400">

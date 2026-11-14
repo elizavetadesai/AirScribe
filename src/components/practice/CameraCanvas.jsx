@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
  * Renders the webcam feed + live fingertip trail canvas overlay.
  * Video is CSS-mirrored; trail coords stored un-mirrored, X flipped for drawing only.
  */
-export function CameraCanvas({ videoRef, trail, isRecording }) {
+export function CameraCanvas({ videoRef, attachVideo, trail, isRecording }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export function CameraCanvas({ videoRef, trail, isRecording }) {
   return (
     <div className="relative w-full aspect-video bg-bark-900 rounded-lg overflow-hidden">
       <video
-        ref={videoRef}
+        ref={attachVideo || videoRef}
         className="absolute inset-0 w-full h-full object-cover"
         style={{ transform: 'scaleX(-1)' }}
         muted
@@ -81,9 +81,11 @@ export function CameraCanvas({ videoRef, trail, isRecording }) {
         autoPlay
         aria-label="Webcam feed"
       />
+      {/* object-cover matches the video's cropping, so the trail stays on the
+          fingertip even when the camera is 4:3 inside this 16:9 box */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none"
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
         aria-hidden
       />
       {/* Recording indicator — text only, no emoji */}

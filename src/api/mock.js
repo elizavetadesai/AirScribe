@@ -1,13 +1,15 @@
 /**
- * Mock API implementations.
- * Activated when VITE_USE_MOCK=true.
- * Returns empty / zero data so the UI shows real empty states.
- * Swap these implementations with realistic data only when demoing.
+ * Mock API implementations (VITE_USE_MOCK=true), for working on the UI
+ * without the backend. Results are RANDOM: they say nothing about the model.
+ * About 1 in 5 attempts comes back as a different shape so the
+ * "not quite" states get exercised too.
  */
+import { TARGET_IDS } from '../config/targets'
 
 const delay = (ms = 500) => new Promise(r => setTimeout(r, ms))
+const rand = (lo, hi) => lo + Math.random() * (hi - lo)
 
-// ── Implementations ──────────────────────────────────────────────────────────
+const mockHistory = []
 
 export async function mockRegister(_email, _password, _role) {
   await delay(700)
@@ -24,29 +26,46 @@ export async function mockLogin(email, _password) {
   }
 }
 
-export async function mockPredict(targetLetter, _points) {
-  await delay(900)
-  // Returns a real-looking result for a completed attempt
-  const accuracy = Math.floor(Math.random() * 25) + 68   // 68–92
-  const smoothness = Math.floor(Math.random() * 25) + 60  // 60–85
-  const confidence = parseFloat((Math.random() * 0.2 + 0.74).toFixed(2))
-  return {
-    letter: targetLetter,
-    confidence,
-    accuracy_score: accuracy,
-    smoothness_score: smoothness,
-    session_id: `session-${Date.now()}`,
-  }
+export async function mockDeleteAccount() {
+  await delay(600)
+  mockHistory.length = 0
+  return null
 }
 
-export async function mockGetHistory(_limit) {
+export async function mockPredict(target, points) {
+  await delay(700)
+  const r = Math.random()
+  const others = TARGET_IDS.filter(t => t !== target)
+  const letter = r < 0.8 ? target : r < 0.93 ? others[Math.floor(Math.random() * others.length)] : 'other'
+  const correct = letter === target
+  const result = {
+    letter,
+    confidence: Number(rand(correct ? 0.7 : 0.4, correct ? 0.98 : 0.7).toFixed(2)),
+    accuracy_score: Math.round(correct ? rand(65, 95) : rand(15, 45)),
+    smoothness_score: Math.round(rand(45, 92)),
+    session_id: `session-${Date.now()}`,
+  }
+  mockHistory.unshift({
+    session_id: result.session_id, created: new Date().toISOString(), target_letter: target,
+    predicted_letter: letter, confidence: result.confidence, accuracy_score: result.accuracy_score,
+    smoothness_score: result.smoothness_score, points,
+  })
+  return result
+}
+
+export async function mockGetHistory(limit) {
   await delay(400)
-  return [] // No pre-populated history — user starts fresh
+  return mockHistory.slice(0, limit)
 }
 
 export async function mockGetPatients() {
   await delay(500)
-  return [] // No pre-linked patients
+  return []
+}
+
+export async function mockLinkPatient(email) {
+  await delay(500)
+  return { id: `mock-${email}`, name: email.split('@')[0], email, sessions_total: 0, last_active: null }
 }
 
 export async function mockGetPatientHistory(_patientId) {

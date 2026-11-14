@@ -5,6 +5,7 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Alert } from '../components/ui/Alert'
 import { Modal } from '../components/ui/Modal'
+import { deleteAccount } from '../api/endpoints'
 
 function Section({ heading, children }) {
   return (
@@ -31,12 +32,19 @@ export default function Settings() {
   const navigate = useNavigate()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   async function handleDelete() {
     setDeleteLoading(true)
-    await new Promise(r => setTimeout(r, 1000))
-    logout()
-    navigate('/auth')
+    setDeleteError(null)
+    try {
+      await deleteAccount()
+      logout()
+      navigate('/auth')
+    } catch (err) {
+      setDeleteError(err.message)
+      setDeleteLoading(false)
+    }
   }
 
   return (
@@ -132,6 +140,7 @@ export default function Settings() {
           <Alert variant="error" title="This cannot be undone">
             All your session data, scores, and account information will be permanently deleted.
           </Alert>
+          {deleteError && <Alert variant="error">{deleteError}</Alert>}
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => setDeleteOpen(false)} disabled={deleteLoading}>
               Cancel

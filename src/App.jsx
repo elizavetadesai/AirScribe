@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import ClinicianView from './pages/ClinicianView'
 import Settings from './pages/Settings'
+import Collect from './pages/Collect'
 
 export default function App() {
   return (
@@ -19,6 +20,8 @@ export default function App() {
           <Routes>
             {/* Public */}
             <Route path="/auth" element={<Auth />} />
+            {/* Team data-collection tool (no account needed; data stays in the browser until downloaded) */}
+            <Route path="/collect" element={<AppShell><Collect /></AppShell>} />
 
             {/* Patient routes */}
             <Route

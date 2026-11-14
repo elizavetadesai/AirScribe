@@ -1,18 +1,19 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { LETTERS } from '../../config/letters'
+import { LETTERS, targetShort } from '../../config/targets'
 
 export function LetterHeatmap({ data = [] }) {
   const filled = LETTERS.map(l => {
     const found = data.find(d => d.letter === l)
-    return { letter: l, accuracy: found ? found.accuracy : 0, attempted: !!found }
+    return { letter: l, label: targetShort(l), accuracy: found ? found.accuracy : 0, attempted: !!found }
   })
 
   return (
     <ResponsiveContainer width="100%" height={160}>
       <BarChart data={filled} margin={{ top: 4, right: 4, bottom: 4, left: -30 }}>
         <XAxis
-          dataKey="letter"
-          tick={{ fontSize: 12, fontWeight: 600, fill: '#7a6a56', fontFamily: 'Inter' }}
+          dataKey="label"
+          interval={0}
+          tick={{ fontSize: 10, fontWeight: 600, fill: '#7a6a56', fontFamily: 'Inter' }}
           tickLine={false}
           axisLine={false}
         />

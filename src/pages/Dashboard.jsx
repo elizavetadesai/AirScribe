@@ -7,7 +7,7 @@ import { LoadingOverlay } from '../components/ui/Spinner'
 import { TrendLine } from '../components/charts/TrendLine'
 import { LetterHeatmap } from '../components/charts/LetterHeatmap'
 import { StreakBadge } from '../components/charts/StreakBadge'
-import { LETTERS } from '../config/letters'
+import { LETTERS } from '../config/targets'
 
 const DISCLAIMER = 'AirScribe is a rehabilitation support tool, not a medical device.'
 const WEEKLY_GOAL = 10
@@ -113,7 +113,7 @@ export default function Dashboard() {
           </h1>
           {!noData && (
             <p className="text-sm text-[var(--color-muted)] mt-1">
-              {sessions.length} sessions completed &ensp;·&ensp; {accuracy}% letter accuracy
+              {sessions.length} sessions completed &ensp;·&ensp; {accuracy}% recognised correctly
             </p>
           )}
         </div>
@@ -183,7 +183,7 @@ export default function Dashboard() {
               <TrendLine data={trend} />
             </Card>
             <Card>
-              <CardHeader><CardTitle>Per-letter accuracy</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Per-recognised correctly</CardTitle></CardHeader>
               <LetterHeatmap data={letterData} />
               <p className="label-caps mt-3">
                 Dark green = great &ensp;·&ensp; Light green = good &ensp;·&ensp; Sand = needs practice

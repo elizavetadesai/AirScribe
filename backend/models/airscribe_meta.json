@@ -1,0 +1,29 @@
+{
+  "classes": [
+    "hline",
+    "vline",
+    "circle",
+    "square",
+    "triangle",
+    "wave",
+    "L",
+    "T",
+    "S",
+    "A",
+    "other"
+  ],
+  "mode": "fusion",
+  "img_size": 64,
+  "n_points": 64,
+  "n_features": 6,
+  "params": 647787,
+  "trained_epoch": 3,
+  "val": {
+    "loss": 0.3389274754307487,
+    "acc": 0.9981818181818182,
+    "f1": 0.9983268736329101
+  },
+  "test_people": [],
+  "exported": "2026-11-14T19:55:42+00:00",
+  "source_checkpoint": "runs/synth_only/best.pt"
+}

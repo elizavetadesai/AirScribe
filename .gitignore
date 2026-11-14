@@ -1,1 +1,33 @@
-node_modules
+# Node / Vite
+node_modules/
+dist/
+*.local
+
+# Secrets
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Backend local database
+backend/*.db
+
+# ML: large data and training outputs (keep code, previews of results go in the report)
+ml/data/
+ml/runs/
+ml/models/
+ml/hand-drawn-shapes-dataset/
+ml/recordings/
+*.ndjson
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/

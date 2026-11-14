@@ -12,9 +12,11 @@ import {
   mockGetHistory,
   mockGetPatients,
   mockGetPatientHistory,
+  mockLinkPatient,
+  mockDeleteAccount,
 } from './mock'
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -28,26 +30,31 @@ export async function login(email, password) {
   return apiFetch('/auth/login', { method: 'POST', body: { email, password }, auth: false })
 }
 
+/** DELETE /auth/me — deletes the account and all its attempts */
+export async function deleteAccount() {
+  if (USE_MOCK) return mockDeleteAccount()
+  return apiFetch('/auth/me', { method: 'DELETE' })
+}
+
 // ── Practice ─────────────────────────────────────────────────────────────────
 
 /**
  * POST /predict
- * @param {string} targetLetter
- * @param {Array<[number, number, number]>} points  [[x, y, t_ms], ...]
+ * @param {string} target       target id, e.g. "circle" or "L" (sent as target_letter)
+ * @param {Array<[number, number, number]>} points  [[x, y, t_ms], ...] raw, NOT mirrored
+ * @param {number} frameAspect  video width / height (MediaPipe scales x and y differently)
  */
-export async function predict(targetLetter, points) {
-  if (USE_MOCK) return mockPredict(targetLetter, points)
+export async function predict(target, points, frameAspect) {
+  if (USE_MOCK) return mockPredict(target, points)
   return apiFetch('/predict', {
     method: 'POST',
-    body: { target_letter: targetLetter, points },
+    body: { target_letter: target, points, frame_aspect: frameAspect },
   })
 }
 
 // ── History ──────────────────────────────────────────────────────────────────
 
-/**
- * GET /history?limit=N
- */
+/** GET /history?limit=N */
 export async function getHistory(limit = 50) {
   if (USE_MOCK) return mockGetHistory(limit)
   return apiFetch(`/history?limit=${limit}`)
@@ -55,17 +62,19 @@ export async function getHistory(limit = 50) {
 
 // ── Clinician ────────────────────────────────────────────────────────────────
 
-/**
- * GET /clinician/patients
- */
+/** GET /clinician/patients */
 export async function getPatients() {
   if (USE_MOCK) return mockGetPatients()
   return apiFetch('/clinician/patients')
 }
 
-/**
- * GET /clinician/patients/{id}/history
- */
+/** POST /clinician/patients {email} — link an existing patient account */
+export async function linkPatient(email) {
+  if (USE_MOCK) return mockLinkPatient(email)
+  return apiFetch('/clinician/patients', { method: 'POST', body: { email } })
+}
+
+/** GET /clinician/patients/{id}/history */
 export async function getPatientHistory(patientId) {
   if (USE_MOCK) return mockGetPatientHistory(patientId)
   return apiFetch(`/clinician/patients/${patientId}/history`)

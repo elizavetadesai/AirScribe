@@ -1,6 +1,30 @@
-#  AirScribe — Air-Writing Rehabilitation
+#  AirScribe - Air-Writing Rehabilitation
 
 A browser-based hand rehabilitation game for stroke patients. Write letters in the air with your index finger while a webcam tracks your movement in real time — no video ever leaves your device.
+
+---
+
+## Full system (frontend + backend + model)
+
+| Folder | What it is | Guide |
+|---|---|---|
+| `src/` | React frontend (this README) | below |
+| `backend/` | FastAPI API: auth, `/predict`, history, clinician views, database, ONNX model | [backend/README.md](backend/README.md) |
+| `ml/` | Data preparation, CNN + BiGRU model, training, evaluation, ONNX export, scoring | [ml/README.md](ml/README.md) |
+
+```
+browser: webcam -> MediaPipe hand landmarks (pretrained, on-device) -> fingertip [x, y, t]
+   |  only coordinates leave the device
+   v
+backend: clean + un-mirror -> 64x64 image (CNN) + 64-step sequence (BiGRU) -> AirScribeNet (trained by us)
+         -> recognised target + confidence -> shape accuracy + smoothness (SPARC, jerk) -> database
+```
+
+Targets: horizontal line, vertical line, circle, square, triangle, wave (Level 1) and L, T, S, A (Level 2).
+The model also has an "other" class for unrecognised movement. The list lives in
+`src/config/targets.js` and `ml/airscribe_ml/classes.py` and must match.
+
+Team data collection: open `/collect` in the running app (no account needed).
 
 ---
 
@@ -30,8 +54,8 @@ cd airscribe
 npm install
 
 # 3. Set up environment
-cp .env.example .env
-# Edit .env as needed
+cp .env.example .env.local
+# VITE_USE_MOCK=true for UI work without the backend
 
 # 4. Run (mock mode — no backend required)
 npm run dev
@@ -109,15 +133,20 @@ All calls are in `src/api/endpoints.js`. The backend must implement:
 |---|---|---|---|---|
 | `POST` | `/auth/register` | None | `{ email, password, role }` | `{ token }` |
 | `POST` | `/auth/login` | None | `{ email, password }` | `{ token, role, name? }` |
-| `POST` | `/predict` | Bearer | `{ target_letter, points: [[x,y,t_ms],...] }` | `{ letter, confidence, accuracy_score, smoothness_score, session_id }` |
+| `POST` | `/predict` | Bearer | `{ target_letter, points: [[x,y,t_ms],...], frame_aspect }` | `{ letter, confidence, accuracy_score, smoothness_score, session_id, ...details }` |
 | `GET` | `/history?limit=N` | Bearer | — | `[{ session_id, created, target_letter, predicted_letter, confidence, accuracy_score, smoothness_score, points }]` |
 | `GET` | `/clinician/patients` | Bearer (clinician) | — | `[{ id, name, email, sessions_total, last_active }]` |
 | `GET` | `/clinician/patients/{id}/history` | Bearer (clinician) | — | same as `/history` |
+| `POST` | `/clinician/patients` | Bearer (clinician) | `{ email }` | patient object (links an existing patient) |
+| `DELETE` | `/auth/me` | Bearer | — | 204, deletes account and all attempts |
+| `GET` | `/health` | None | — | `{ status, model_loaded, model }` |
+
+`target_letter` holds a target id (`circle`, `L`, ...). `frame_aspect` is video width / height: MediaPipe scales x by width and y by height, so the backend needs it to undo the squash.
 
 ### Tracking details
 
 - Landmark **index 8** (index fingertip) from the **first detected hand**
-- Coordinates are **normalized 0–1**, stored **without mirroring** (display mirroring is CSS `transform: scaleX(-1)` only)
+- Coordinates are **normalized 0–1**, stored **without mirroring** (display mirroring is CSS `transform: scaleX(-1)` only); the backend flips x and applies `frame_aspect`
 - Each point: `[x: number, y: number, t_ms: number]` (t = ms since recording start)
 - Minimum **10 points** required before submitting — shorter attempts are rejected client-side
 

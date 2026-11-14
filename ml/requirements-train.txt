@@ -1,0 +1,14 @@
+torch>=2.2
+numpy>=1.26
+scipy>=1.11
+pillow>=10
+scikit-image>=0.22
+matplotlib>=3.8
+pandas>=2.0
+onnx>=1.15
+onnxruntime>=1.17
+# only for data_prep/letters.py --hf
+datasets>=2.18
+# only to run the backend inference check inside smoke_test.py
+fastapi>=0.110
+pydantic>=2.5

@@ -29,14 +29,20 @@ function buildHeaders(includeAuth = true) {
   return headers
 }
 
-function humanizeError(status, body) {
-  if (status === 401) return new ApiError('Session expired. Please log in again.', 401, 'SESSION_EXPIRED')
-  if (status === 403) return new ApiError('You do not have permission to do this.', 403, 'FORBIDDEN')
-  if (status === 404) return new ApiError('Resource not found.', 404, 'NOT_FOUND')
-  if (status === 422) return new ApiError('Invalid data sent to server. Please try again.', 422, 'VALIDATION')
+function humanizeError(status, body, authed) {
+  const detail = typeof body?.detail === 'string' ? body.detail : null
+  if (status === 401) {
+    if (!authed) return new ApiError(detail || 'Wrong email or password.', 401, 'UNAUTHORIZED')
+    window.dispatchEvent(new Event('airscribe:session-expired'))
+    return new ApiError('Session expired. Please log in again.', 401, 'SESSION_EXPIRED')
+  }
+  if (status === 403) return new ApiError(detail || 'You do not have permission to do this.', 403, 'FORBIDDEN')
+  if (status === 404) return new ApiError(detail || 'Resource not found.', 404, 'NOT_FOUND')
+  if (status === 409) return new ApiError(detail || 'This already exists.', 409, 'CONFLICT')
+  if (status === 422) return new ApiError(detail || 'Invalid data sent to server. Please try again.', 422, 'VALIDATION')
+  if (status === 503) return new ApiError(detail || 'The service is starting up. Please try again in a minute.', 503, 'UNAVAILABLE')
   if (status >= 500) return new ApiError('Server error. Please try again in a moment.', status, 'SERVER_ERROR')
-  const msg = body?.detail || body?.message || 'An unexpected error occurred.'
-  return new ApiError(msg, status, 'UNKNOWN')
+  return new ApiError(detail || body?.message || 'An unexpected error occurred.', status, 'UNKNOWN')
 }
 
 export async function apiFetch(path, { method = 'GET', body, auth = true } = {}) {
@@ -62,7 +68,7 @@ export async function apiFetch(path, { method = 'GET', body, auth = true } = {})
   }
 
   if (!response.ok) {
-    throw humanizeError(response.status, data)
+    throw humanizeError(response.status, data, auth && !!getToken())
   }
 
   return data
