@@ -55,7 +55,7 @@ export async function apiFetch(path, { method = 'GET', body, auth = true } = {})
     })
   } catch {
     throw new ApiError(
-      'Could not reach the server. Check your connection.',
+      'Could not reach the server. If it was idle it can take up to a minute to wake up, so try again shortly.',
       0,
       'NETWORK_ERROR'
     )

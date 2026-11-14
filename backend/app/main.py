@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -25,6 +26,7 @@ from .security import create_token, current_user, hash_password, require_clinici
 from airscribe_ml.classes import DISPLAY_NAMES, LEVEL, TARGETS  # noqa: E402  (path set by inference)
 from airscribe_ml.preprocess import TrajectoryError  # noqa: E402
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("airscribe")
 STATE: dict = {"predictor": None, "model_error": None}
 
@@ -41,17 +43,29 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="AirScribe API", version="0.2.0", lifespan=lifespan,
               description="Air-drawing recognition and movement scoring for home stroke rehabilitation. "
                           "Rehabilitation support tool, not a medical device.")
-app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS,
-                   allow_origin_regex=config.CORS_ORIGIN_REGEX, allow_credentials=False,
-                   allow_methods=["*"], allow_headers=["*"])
 
 
 @app.middleware("http")
-async def timing_header(request: Request, call_next):
+async def timing_and_errors(request: Request, call_next):
+    """Times every request and turns crashes into a JSON 500 with the full
+    traceback in the server log. Registered BEFORE CORS so CORS wraps it:
+    error responses then still carry CORS headers and the browser shows
+    "Server error" instead of a misleading "Could not reach the server"."""
     t0 = time.perf_counter()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:  # noqa: BLE001
+        log.exception("Unhandled error on %s %s", request.method, request.url.path)
+        response = JSONResponse({"detail": "Internal server error"}, status_code=500)
     response.headers["X-Process-Time-Ms"] = f"{(time.perf_counter() - t0) * 1000:.1f}"
     return response
+
+
+# Added last = outermost layer, so it also covers the 500 responses above.
+app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS,
+                   allow_origin_regex=config.CORS_ORIGIN_REGEX, allow_credentials=False,
+                   allow_methods=["*"], allow_headers=["*"])
+log.info("CORS allowed origins: %s", config.CORS_ORIGINS)
 
 
 # ----------------------------------------------------------------------------- helpers
