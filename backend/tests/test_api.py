@@ -18,6 +18,8 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
 os.environ["JWT_SECRET"] = "test-secret-that-is-at-least-32-bytes-long"
 os.environ["MODEL_DIR"] = _tmp  # empty: no real model
+os.environ["COLLECT_CODE"] = "team-code"
+os.environ["COLLECT_ADMIN_KEY"] = "admin-secret"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -120,3 +122,35 @@ def test_delete_account(client):
     h = _register(client, "bye@example.com")
     assert client.delete("/auth/me", headers=h).status_code == 204
     assert client.get("/history", headers=h).status_code == 401
+
+
+def test_collect_flow(client):
+    pts = webcam_points("circle")
+    # wrong code is rejected
+    assert client.post("/collect/participants", json={"code": "nope"}).status_code == 403
+    # server assigns distinct IDs
+    a = client.post("/collect/participants", json={"code": "team-code"}).json()["participant_id"]
+    b = client.post("/collect/participants", json={"code": "team-code"}).json()["participant_id"]
+    assert a != b and a.startswith("P")
+    sample = {"code": "team-code", "participant_id": a, "client_id": "abc12345-0001", "label": "circle",
+              "hand": "right", "fps": 30, "aspect": 16 / 9, "created": "2026-11-15T10:00:00Z", "points": pts}
+    r = client.post("/collect/samples", json=sample)
+    assert r.status_code == 200 and r.json()["count"] == 1
+    # retrying the same drawing does not duplicate it
+    assert client.post("/collect/samples", json=sample).json()["count"] == 1
+    # bad label and unknown participant
+    assert client.post("/collect/samples", json={**sample, "client_id": "abc12345-0002", "label": "Q"}).status_code == 422
+    assert client.post("/collect/samples", json={**sample, "client_id": "abc12345-0003",
+                                                 "participant_id": "P999"}).status_code == 404
+    # the same drawing cannot be claimed by another participant
+    assert client.post("/collect/samples", json={**sample, "participant_id": b}).status_code == 409
+    client.post("/collect/samples", json={**sample, "client_id": "abc12345-0004", "label": "L"})
+    # admin endpoints need the key
+    assert client.get("/collect/summary").status_code == 403
+    summ = client.get("/collect/summary?key=admin-secret").json()
+    assert summ["per_participant"][a] == {"total": 2, "L": 1, "circle": 1}
+    # undo removes it; export matches the page's download format
+    assert client.delete(f"/collect/samples/abc12345-0004?participant_id={a}&code=team-code").status_code == 204
+    exp = client.get("/collect/export", headers={"X-Admin-Key": "admin-secret"}).json()
+    assert len(exp) == 1 and exp[0]["participant"] == a and exp[0]["label"] == "circle"
+    assert set(exp[0]) >= {"participant", "label", "hand", "fps", "aspect", "created", "points"}

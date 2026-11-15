@@ -74,3 +74,25 @@ Open `/health` a few minutes before the live demo.
 * No video or images are received or stored, only coordinates.
 * Not done (state as future work): rate limiting, email verification, patient consent before a clinician
   links them, audit logs, encryption at rest.
+
+## Training-data collection (upload mode)
+
+The `/collect` page uploads every saved drawing to this backend when its link carries the team code:
+
+```
+https://<frontend>/collect?code=<COLLECT_CODE>
+```
+
+* Set on the server: `COLLECT_CODE` (short, goes in the link) and `COLLECT_ADMIN_KEY` (long, secret).
+* The server gives each participant the next free ID (P01, P02, ...). "New participant" on the page gets a
+  fresh ID for the next person on the same laptop. A copy of every drawing also stays in the browser.
+* Progress table: open `https://<backend>/collect/summary?key=<COLLECT_ADMIN_KEY>` in a browser.
+* Export everything (same format as the page's JSON download), then prepare it for training:
+
+```bash
+curl -H "X-Admin-Key: <COLLECT_ADMIN_KEY>" https://<backend>/collect/export -o ml/recordings/server.json
+cd ml && python data_prep/own_recordings.py recordings/*.json
+```
+
+Duplicates between the server export and any downloaded files are removed automatically.
+Without `?code=` in the link the page works offline as before (download the JSON by hand).

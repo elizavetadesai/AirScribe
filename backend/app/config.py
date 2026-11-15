@@ -31,3 +31,7 @@ CORS_ORIGINS = [o.strip() for o in os.getenv(
 CORS_ORIGIN_REGEX = os.getenv("CORS_ORIGIN_REGEX") or None  # e.g. https://airscribe-.*\.vercel\.app
 MODEL_DIR = Path(os.getenv("MODEL_DIR", str(BACKEND_DIR / "models")))
 MAX_POINTS = int(os.getenv("MAX_POINTS", "5000"))
+
+# Data collection (/collect page uploads). Both empty = collection upload disabled.
+COLLECT_CODE = os.getenv("COLLECT_CODE", "")            # short team code put in the collect link
+COLLECT_ADMIN_KEY = os.getenv("COLLECT_ADMIN_KEY", "")  # long secret for summary/export

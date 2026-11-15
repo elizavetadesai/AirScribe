@@ -79,3 +79,28 @@ export async function getPatientHistory(patientId) {
   if (USE_MOCK) return mockGetPatientHistory(patientId)
   return apiFetch(`/clinician/patients/${patientId}/history`)
 }
+
+// ── Data collection (/collect page, no login; protected by the team code in the link) ──
+
+/** POST /collect/participants {code} -> {participant_id: "P07"} */
+export async function collectNewParticipant(code) {
+  return apiFetch('/collect/participants', { method: 'POST', body: { code }, auth: false })
+}
+
+/** POST /collect/samples — idempotent thanks to client_id */
+export async function collectUpload(code, s) {
+  return apiFetch('/collect/samples', {
+    method: 'POST',
+    auth: false,
+    body: {
+      code, participant_id: s.participant, client_id: s.client_id, label: s.label, hand: s.hand,
+      note: s.note || '', fps: s.fps, aspect: s.aspect, created: s.created, points: s.points,
+    },
+  })
+}
+
+/** DELETE /collect/samples/{client_id} — used by "Undo last" */
+export async function collectDelete(code, participantId, clientId) {
+  const q = `participant_id=${encodeURIComponent(participantId)}&code=${encodeURIComponent(code)}`
+  return apiFetch(`/collect/samples/${encodeURIComponent(clientId)}?${q}`, { method: 'DELETE', auth: false })
+}

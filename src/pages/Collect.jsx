@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CameraCanvas } from '../components/practice/CameraCanvas'
 import { HandStatus } from '../components/practice/HandStatus'
 import { TrailReplay } from '../components/practice/TrailReplay'
@@ -11,6 +11,7 @@ import { TARGETS, getTarget } from '../config/targets'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracker } from '../hooks/useHandTracker'
 import { videoAspect } from '../utils/trail'
+import { USE_MOCK, collectDelete, collectNewParticipant, collectUpload } from '../api/endpoints'
 
 /**
  * Data-collection page for the training dataset (/collect, no login needed).
@@ -59,6 +60,13 @@ function stamp() {
 }
 
 // Only text fields keep Space/Enter/Backspace for themselves (not checkboxes or buttons)
+function newClientId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+const SERVER_ID = /^P\d{2,5}$/
+
 function isTyping(el) {
   if (!el) return false
   if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
@@ -67,6 +75,11 @@ function isTyping(el) {
 
 export default function Collect() {
   const prefs = loadJSON(PREFS_KEY, {})
+  // Upload mode: the link carries the team code (?code=...). It is remembered, so a reload keeps working.
+  const [code] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('code') || prefs.code || '' } catch { return prefs.code || '' }
+  })
+  const uploadMode = !!code && !USE_MOCK
   const [participant, setParticipant] = useState(prefs.participant || '')
   const [hand, setHand] = useState(prefs.hand || 'right')
   const [note, setNote] = useState(prefs.note || '')
@@ -79,6 +92,11 @@ export default function Collect() {
   const [message, setMessage] = useState(null)
   const [storageError, setStorageError] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [assigning, setAssigning] = useState(false)
+  const [idError, setIdError] = useState(null)
+  const [uploadError, setUploadError] = useState(null)
+  const samplesRef = useRef(samples)
+  const syncingRef = useRef(false)
 
   const camera = useCamera()
   const tracker = useHandTracker(camera.videoRef)
@@ -91,9 +109,9 @@ export default function Collect() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ participant, hand, note, goal }))
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ participant, hand, note, goal, code }))
     } catch { /* ignore */ }
-  }, [participant, hand, note, goal])
+  }, [participant, hand, note, goal, code])
 
   const pid = participant.trim().toUpperCase()
   const mine = useMemo(() => samples.filter(s => s.participant === pid), [samples, pid])
@@ -112,9 +130,13 @@ export default function Collect() {
   const target = manualTarget || autoTarget
   const t = getTarget(target)
   const storageBytes = useMemo(() => JSON.stringify(samples).length, [samples])
-  const ready = consent && /^[A-Z0-9_-]{2,12}$/.test(pid)
+  // In upload mode only a server-given ID is accepted (otherwise uploads would be rejected)
+  const ready = consent && (uploadMode ? SERVER_ID.test(pid) && !assigning : /^[A-Z0-9_-]{2,12}$/.test(pid))
 
-  function persist(next) {
+  // Accepts a new list or an updater function (prev => next)
+  function persist(nextOrFn) {
+    const next = typeof nextOrFn === 'function' ? nextOrFn(samplesRef.current) : nextOrFn
+    samplesRef.current = next
     setSamples(next)
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(next))
@@ -123,6 +145,67 @@ export default function Collect() {
       setStorageError('Browser storage is full. Download the data now, then clear it, or new samples will be lost on reload.')
     }
   }
+
+  // ── Upload mode: server-assigned ID ────────────────────────────────────────
+  const assignId = useCallback(async () => {
+    setAssigning(true)
+    setIdError(null)
+    try {
+      const r = await collectNewParticipant(code)
+      setParticipant(r.participant_id)
+      setConsent(false)
+      setManualTarget('')
+      setMessage({ variant: 'info', text: `New participant ${r.participant_id}. Tick consent to start.` })
+    } catch (err) {
+      setIdError(err.message)
+    } finally {
+      setAssigning(false)
+    }
+  }, [code])
+
+  const autoAssignedRef = useRef(false) // React dev mode runs effects twice; ask for one ID only
+  useEffect(() => {
+    if (autoAssignedRef.current) return
+    autoAssignedRef.current = true
+    if (uploadMode && !SERVER_ID.test(participant.trim().toUpperCase())) assignId()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadMode])
+
+  // ── Upload mode: send saved drawings, one at a time, retrying until done ──
+  const syncUploads = useCallback(async () => {
+    if (!uploadMode || syncingRef.current) return
+    syncingRef.current = true
+    try {
+      for (;;) {
+        const next = samplesRef.current.find(s => s.server && !s.uploaded)
+        if (!next) break
+        try {
+          await collectUpload(code, next)
+          persist(prev => prev.map(s => (s.client_id === next.client_id ? { ...s, uploaded: true } : s)))
+          setUploadError(null)
+        } catch (err) {
+          if ([404, 409, 422].includes(err.status)) {
+            // The server will never accept this one; keep it on this device (Download all) and move on
+            persist(prev => prev.map(s => (s.client_id === next.client_id ? { ...s, uploaded: 'rejected' } : s)))
+            setUploadError(`One drawing was not accepted by the server (${err.message}). It is kept on this device.`)
+          } else {
+            setUploadError(`${err.message} Saved drawings stay on this device and will upload automatically.`)
+            break
+          }
+        }
+      }
+    } finally {
+      syncingRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadMode, code])
+
+  useEffect(() => {
+    if (!uploadMode) return undefined
+    syncUploads()
+    const id = setInterval(syncUploads, 15000)
+    return () => clearInterval(id)
+  }, [uploadMode, syncUploads])
 
   const start = useCallback(() => {
     if (!ready || !tracker.isReady || !camera.active) return
@@ -158,14 +241,27 @@ export default function Collect() {
       fps: dur > 0 ? Math.round(((pts.length - 1) / dur) * 10) / 10 : null,
       aspect: Math.round(pending.aspect * 10000) / 10000,
       created: new Date().toISOString(), app: 'airscribe-collect', points: pts,
+      client_id: newClientId(), server: uploadMode, uploaded: false,
     }
-    persist([...samples, sample])
+    persist(prev => [...prev, sample])
+    if (uploadMode) setTimeout(syncUploads, 0)
     setPending(null)
     tracker.clearTrail()
     setPhase('idle')
     setMessage({ variant: 'success', text: `Saved ${t.name} (${counts[target] + 1}/${goal}).` })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, pid, target, hand, note, samples, tracker, counts, goal])
+  }, [pending, pid, target, hand, note, samples, tracker, counts, goal, uploadMode, syncUploads])
+
+  function undoLast() {
+    const last = mine[mine.length - 1]
+    if (!last) return
+    persist(prev => prev.filter(s => s !== last && !(last.client_id && s.client_id === last.client_id)))
+    if (uploadMode && last.server && last.uploaded === true) {
+      collectDelete(code, last.participant, last.client_id).catch(err =>
+        setUploadError(`Undo could not reach the server (${err.message}). Tell the team the last ${getTarget(last.label).name} for ${last.participant} should be removed.`))
+    }
+    setMessage({ variant: 'info', text: `Removed the last ${getTarget(last.label).name}.` })
+  }
 
   useEffect(() => {
     function onKey(e) {
@@ -192,6 +288,8 @@ export default function Collect() {
   const doneAll = CLASSES.every(c => counts[c.id] >= goal)
   const missing = CLASSES.filter(c => (counts[c.id] || 0) < MIN_PER_TARGET)
   const canDownloadMine = mine.length > 0 && missing.length === 0
+  const mineUploaded = mine.filter(s => s.uploaded === true).length
+  const minePending = mine.filter(s => s.server && !s.uploaded).length
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in space-y-6">
@@ -208,6 +306,13 @@ export default function Collect() {
         <Alert variant="error" title="Camera or tracker unavailable">{camera.error || tracker.initError}</Alert>
       )}
       {storageError && <Alert variant="error" title="Storage full">{storageError}</Alert>}
+      {idError && (
+        <Alert variant="error" title="Could not get a participant ID">
+          {idError}{' '}
+          <button className="underline" onClick={assignId}>Try again</button>
+        </Alert>
+      )}
+      {uploadError && <Alert variant="warning" title="Upload">{uploadError}</Alert>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-4">
@@ -228,8 +333,9 @@ export default function Collect() {
             <span className="label-caps block mb-3">Participant</span>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-xs text-[var(--color-muted)] space-y-1">
-                <span>Anonymous ID (e.g. P01)</span>
+                <span>{uploadMode ? 'Anonymous ID (given by the server)' : 'Anonymous ID (e.g. P01)'}</span>
                 <input value={participant} onChange={e => setParticipant(e.target.value)} maxLength={12}
+                  readOnly={uploadMode} placeholder={assigning ? 'Getting an ID…' : ''}
                   className="w-full h-11 px-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] uppercase" />
               </label>
               <label className="text-xs text-[var(--color-muted)] space-y-1">
@@ -255,14 +361,23 @@ export default function Collect() {
             <label className="flex items-start gap-3 mt-4 text-sm text-[var(--color-text)]">
               <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1 h-5 w-5" />
               <span>
-                The participant agreed to take part. Only fingertip coordinates are saved: no video, no images,
-                no name. The data is used for the CDS301 course project only.
+                The participant agreed to take part. Only fingertip coordinates are saved{uploadMode ? ' and sent to the project server' : ''}:
+                no video, no images, no name. The data is used for the CDS301 course project only.
               </span>
             </label>
             {!ready && (
               <p className="text-xs text-[var(--color-muted)] mt-3">
-                Enter an ID (2-12 letters/numbers) and tick consent to start recording.
+                {uploadMode
+                  ? (assigning ? 'Getting an ID from the server (the first time can take up to a minute)…' : 'Tick consent to start recording.')
+                  : 'Enter an ID (2-12 letters/numbers) and tick consent to start recording.'}
               </p>
+            )}
+            {uploadMode && (
+              <div className="mt-3">
+                <Button size="md" variant="secondary" disabled={assigning || phase !== 'idle'} onClick={assignId}>
+                  New participant
+                </Button>
+              </div>
             )}
           </Card>
         </div>
@@ -347,6 +462,12 @@ export default function Collect() {
               about {Math.round(storageBytes / 1000)} KB of roughly 5,000 KB browser storage.
               {storageBytes > STORAGE_WARN_BYTES && ' Download and clear soon.'}
             </p>
+            {uploadMode && pid && (
+              <p className="text-xs text-[var(--color-muted)] mb-3">
+                Drawings upload automatically, nothing to send. {pid}: {mineUploaded} of {mine.length} uploaded
+                {minePending ? ` (${minePending} waiting)` : ''}.
+              </p>
+            )}
             <p className="text-xs text-[var(--color-muted)] mb-3">
               {!pid
                 ? `Each person needs at least ${MIN_PER_TARGET} recordings of every target before their file can be downloaded.`
@@ -366,7 +487,7 @@ export default function Collect() {
                 Download all
               </Button>
               <Button size="md" variant="secondary" disabled={!mine.length}
-                onClick={() => persist(samples.filter(s => s !== mine[mine.length - 1]))}>
+                onClick={undoLast}>
                 Undo last
               </Button>
               {!confirmClear ? (

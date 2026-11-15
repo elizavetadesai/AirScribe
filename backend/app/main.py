@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from . import config
 from .db import Attempt, ClinicianLink, User, get_db, init_db
 from .inference import load_predictor
+from .collect import router as collect_router
 from .schemas import (HistoryItem, LinkIn, LoginIn, PatientOut, PredictIn, PredictOut, RegisterIn,
                       TokenOut)
 from .security import create_token, current_user, hash_password, require_clinician, verify_password
@@ -66,6 +67,7 @@ app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS,
                    allow_origin_regex=config.CORS_ORIGIN_REGEX, allow_credentials=False,
                    allow_methods=["*"], allow_headers=["*"])
 log.info("CORS allowed origins: %s", config.CORS_ORIGINS)
+app.include_router(collect_router)
 
 
 # ----------------------------------------------------------------------------- helpers

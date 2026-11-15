@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from sqlalchemy import (JSON, DateTime, Float, ForeignKey, String, UniqueConstraint, create_engine)
+from sqlalchemy import (JSON, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, create_engine)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 from .config import DATABASE_URL
@@ -65,6 +65,34 @@ class ClinicianLink(Base):
     clinician_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     created: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CollectParticipant(Base):
+    """Anonymous training-data participant. The public ID is P01, P02, ... from `num`."""
+    __tablename__ = "collect_participants"
+    num: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    @property
+    def pid(self) -> str:
+        return f"P{self.num:02d}"
+
+
+class CollectSample(Base):
+    """One recorded drawing for the training dataset (fingertip coordinates only)."""
+    __tablename__ = "collect_samples"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    client_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    participant_num: Mapped[int] = mapped_column(ForeignKey("collect_participants.num", ondelete="CASCADE"),
+                                                 index=True)
+    label: Mapped[str] = mapped_column(String(20))
+    hand: Mapped[str] = mapped_column(String(10), default="unknown")
+    note: Mapped[str] = mapped_column(String(60), default="")
+    fps: Mapped[float | None] = mapped_column(Float, nullable=True)
+    aspect: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_client: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    received: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    points: Mapped[list] = mapped_column(JSON)
 
 
 def init_db() -> None:
