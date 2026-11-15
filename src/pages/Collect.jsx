@@ -115,7 +115,10 @@ export default function Collect() {
   }, [participant, hand, note, goal, code, assigned])
 
   const pid = participant.trim().toUpperCase()
-  const mine = useMemo(() => samples.filter(s => s.participant === pid), [samples, pid])
+  // In upload mode only drawings recorded under the server-given ID count (a typed "P01" from
+  // offline use must never mix with the server's P01)
+  const mine = useMemo(() => samples.filter(s => s.participant === pid &&
+    (uploadMode ? s.server === true && s.serverId === true : !s.serverId)), [samples, pid, uploadMode])
   const counts = useMemo(() => {
     const c = Object.fromEntries(CLASSES.map(t => [t.id, 0]))
     mine.forEach(s => { c[s.label] = (c[s.label] || 0) + 1 })
@@ -183,7 +186,7 @@ export default function Collect() {
     syncingRef.current = true
     try {
       for (;;) {
-        const next = samplesRef.current.find(s => s.server && !s.uploaded)
+        const next = samplesRef.current.find(s => s.server && s.serverId === true && !s.uploaded)
         if (!next) break
         try {
           await collectUpload(code, next)
@@ -252,7 +255,7 @@ export default function Collect() {
       fps: dur > 0 ? Math.round(((pts.length - 1) / dur) * 10) / 10 : null,
       aspect: Math.round(pending.aspect * 10000) / 10000,
       created: new Date().toISOString(), app: 'airscribe-collect', points: pts,
-      client_id: newClientId(), server: uploadMode, uploaded: false,
+      client_id: newClientId(), server: uploadMode, serverId: uploadMode && pid === assigned, uploaded: false,
     }
     persist(prev => [...prev, sample])
     if (uploadMode) setTimeout(syncUploads, 0)
@@ -261,7 +264,7 @@ export default function Collect() {
     setPhase('idle')
     setMessage({ variant: 'success', text: `Saved ${t.name} (${counts[target] + 1}/${goal}).` })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, pid, target, hand, note, samples, tracker, counts, goal, uploadMode, syncUploads])
+  }, [pending, pid, target, hand, note, samples, tracker, counts, goal, uploadMode, syncUploads, assigned])
 
   function undoLast() {
     const last = mine[mine.length - 1]
@@ -300,7 +303,7 @@ export default function Collect() {
   const missing = CLASSES.filter(c => (counts[c.id] || 0) < MIN_PER_TARGET)
   const canDownloadMine = mine.length > 0 && missing.length === 0
   const mineUploaded = mine.filter(s => s.uploaded === true).length
-  const minePending = mine.filter(s => s.server && !s.uploaded).length
+  const minePending = mine.filter(s => s.server && s.serverId === true && !s.uploaded).length
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in space-y-6">
