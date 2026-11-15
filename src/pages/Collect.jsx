@@ -92,6 +92,7 @@ export default function Collect() {
   const [message, setMessage] = useState(null)
   const [storageError, setStorageError] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [assigned, setAssigned] = useState(prefs.assigned || '') // ID the server gave this browser
   const [assigning, setAssigning] = useState(false)
   const [idError, setIdError] = useState(null)
   const [uploadError, setUploadError] = useState(null)
@@ -109,9 +110,9 @@ export default function Collect() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ participant, hand, note, goal, code }))
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ participant, hand, note, goal, code, assigned }))
     } catch { /* ignore */ }
-  }, [participant, hand, note, goal, code])
+  }, [participant, hand, note, goal, code, assigned])
 
   const pid = participant.trim().toUpperCase()
   const mine = useMemo(() => samples.filter(s => s.participant === pid), [samples, pid])
@@ -131,7 +132,8 @@ export default function Collect() {
   const t = getTarget(target)
   const storageBytes = useMemo(() => JSON.stringify(samples).length, [samples])
   // In upload mode only a server-given ID is accepted (otherwise uploads would be rejected)
-  const ready = consent && (uploadMode ? SERVER_ID.test(pid) && !assigning : /^[A-Z0-9_-]{2,12}$/.test(pid))
+  const ready = consent && (uploadMode ? SERVER_ID.test(pid) && pid === assigned && !assigning
+    : /^[A-Z0-9_-]{2,12}$/.test(pid))
 
   // Accepts a new list or an updater function (prev => next)
   function persist(nextOrFn) {
@@ -152,6 +154,7 @@ export default function Collect() {
     setIdError(null)
     try {
       const r = await collectNewParticipant(code)
+      setAssigned(r.participant_id)
       setParticipant(r.participant_id)
       setConsent(false)
       setManualTarget('')
@@ -167,7 +170,10 @@ export default function Collect() {
   useEffect(() => {
     if (autoAssignedRef.current) return
     autoAssignedRef.current = true
-    if (uploadMode && !SERVER_ID.test(participant.trim().toUpperCase())) assignId()
+    if (!uploadMode) return
+    // Only an ID handed out by the server counts; a typed "P01" from offline use does not
+    if (assigned) setParticipant(assigned)
+    else assignId()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadMode])
 
@@ -184,6 +190,11 @@ export default function Collect() {
           persist(prev => prev.map(s => (s.client_id === next.client_id ? { ...s, uploaded: true } : s)))
           setUploadError(null)
         } catch (err) {
+          if (err.status === 404) {
+            // The server does not know this ID (e.g. its database was reset): stop using it
+            setAssigned('')
+            setIdError('The server does not recognise this participant ID. Click "New participant" to get a new one.')
+          }
           if ([404, 409, 422].includes(err.status)) {
             // The server will never accept this one; keep it on this device (Download all) and move on
             persist(prev => prev.map(s => (s.client_id === next.client_id ? { ...s, uploaded: 'rejected' } : s)))
