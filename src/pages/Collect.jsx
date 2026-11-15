@@ -7,7 +7,7 @@ import { Alert } from '../components/ui/Alert'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Spinner } from '../components/ui/Spinner'
-import { OTHER, TARGETS, getTarget } from '../config/targets'
+import { TARGETS, getTarget } from '../config/targets'
 import { useCamera } from '../hooks/useCamera'
 import { useHandTracker } from '../hooks/useHandTracker'
 import { videoAspect } from '../utils/trail'
@@ -22,8 +22,12 @@ import { videoAspect } from '../utils/trail'
  */
 
 const STORE_KEY = 'airscribe_collect_samples_v1'
-const PREFS_KEY = 'airscribe_collect_prefs_v1'
-const CLASSES = [...TARGETS, OTHER]
+const PREFS_KEY = 'airscribe_collect_prefs_v2'
+// "other" is not recorded: the model learns it from synthetic and public data
+const CLASSES = TARGETS
+// Every person records this many of each target; their file can only be downloaded once all targets reach it.
+const MIN_PER_TARGET = 10
+const MAX_GOAL = 15
 const MIN_POINTS = 10
 const STORAGE_WARN_BYTES = 3_500_000
 
@@ -54,8 +58,11 @@ function stamp() {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`
 }
 
+// Only text fields keep Space/Enter/Backspace for themselves (not checkboxes or buttons)
 function isTyping(el) {
-  return el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')
+  if (!el) return false
+  if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
+  return el.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(el.type)
 }
 
 export default function Collect() {
@@ -63,7 +70,7 @@ export default function Collect() {
   const [participant, setParticipant] = useState(prefs.participant || '')
   const [hand, setHand] = useState(prefs.hand || 'right')
   const [note, setNote] = useState(prefs.note || '')
-  const [goal, setGoal] = useState(prefs.goal || 20)
+  const [goal, setGoal] = useState(Math.min(MAX_GOAL, Math.max(MIN_PER_TARGET, prefs.goal || MIN_PER_TARGET)))
   const [consent, setConsent] = useState(false)
   const [samples, setSamples] = useState(() => loadJSON(STORE_KEY, []))
   const [manualTarget, setManualTarget] = useState('')
@@ -155,7 +162,6 @@ export default function Collect() {
     persist([...samples, sample])
     setPending(null)
     tracker.clearTrail()
-    setManualTarget('')
     setPhase('idle')
     setMessage({ variant: 'success', text: `Saved ${t.name} (${counts[target] + 1}/${goal}).` })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,6 +170,8 @@ export default function Collect() {
   useEffect(() => {
     function onKey(e) {
       if (isTyping(document.activeElement)) return
+      // A clicked button/checkbox keeps focus; drop it so the key doesn't also "click" it
+      if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur()
       if (e.code === 'Space') {
         e.preventDefault()
         if (phase === 'idle') start()
@@ -182,6 +190,8 @@ export default function Collect() {
 
   const loading = !tracker.isReady || camera.loading
   const doneAll = CLASSES.every(c => counts[c.id] >= goal)
+  const missing = CLASSES.filter(c => (counts[c.id] || 0) < MIN_PER_TARGET)
+  const canDownloadMine = mine.length > 0 && missing.length === 0
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in space-y-6">
@@ -237,8 +247,8 @@ export default function Collect() {
               </label>
               <label className="text-xs text-[var(--color-muted)] space-y-1">
                 <span>Goal per target</span>
-                <input type="number" min={1} max={100} value={goal}
-                  onChange={e => setGoal(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                <input type="number" min={MIN_PER_TARGET} max={MAX_GOAL} value={goal}
+                  onChange={e => setGoal(Math.max(MIN_PER_TARGET, Math.min(MAX_GOAL, Number(e.target.value) || MIN_PER_TARGET)))}
                   className="w-full h-11 px-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]" />
               </label>
             </div>
@@ -266,17 +276,21 @@ export default function Collect() {
                   <TargetGlyph id={target} size={96} className="text-forest-800 dark:text-forest-300 shrink-0" />
                   <div>
                     <div className="font-display text-xl font-semibold text-[var(--color-text)]">
-                      {target === 'other' ? 'Other (scribble)' : t.name}
+                      {t.name}
                     </div>
                     <p className="text-sm text-[var(--color-muted)] mt-1 leading-relaxed">{t.hint}</p>
                     <p className="label-caps mt-2">{counts[target] || 0} / {goal} recorded</p>
+                    {manualTarget && counts[target] >= goal && (
+                      <p className="text-xs text-forest-700 mt-1">Goal reached for this target. Pick another, or switch to Auto.</p>
+                    )}
                   </div>
                 </div>
               </div>
-              <select aria-label="Choose target manually" value={manualTarget} onChange={e => setManualTarget(e.target.value)}
+              <select aria-label="Choose target manually" value={manualTarget}
+                onChange={e => { setManualTarget(e.target.value); e.target.blur() /* so Space starts recording */ }}
                 className="h-11 px-2 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-xs">
                 <option value="">Auto (fewest)</option>
-                {CLASSES.map(c => <option key={c.id} value={c.id}>{c.id === 'other' ? 'Other' : c.name}</option>)}
+                {CLASSES.map(c => <option key={c.id} value={c.id}>{c.name} ({counts[c.id]}/{goal})</option>)}
               </select>
             </div>
           </Card>
@@ -316,7 +330,7 @@ export default function Collect() {
               {CLASSES.map(c => (
                 <li key={c.id} className="flex items-center gap-3 text-xs">
                   <TargetGlyph id={c.id} size={20} className="text-[var(--color-muted)] shrink-0" />
-                  <span className="w-28 text-[var(--color-text)]">{c.id === 'other' ? 'Other' : c.name}</span>
+                  <span className="w-28 text-[var(--color-text)]">{c.name}</span>
                   <span className="flex-1 h-1.5 bg-cream-300 dark:bg-bark-700 rounded-full overflow-hidden">
                     <span className="block h-full bg-forest-600" style={{ width: `${Math.min(100, (counts[c.id] / goal) * 100)}%` }} />
                   </span>
@@ -333,8 +347,17 @@ export default function Collect() {
               about {Math.round(storageBytes / 1000)} KB of roughly 5,000 KB browser storage.
               {storageBytes > STORAGE_WARN_BYTES && ' Download and clear soon.'}
             </p>
+            <p className="text-xs text-[var(--color-muted)] mb-3">
+              {!pid
+                ? `Each person needs at least ${MIN_PER_TARGET} recordings of every target before their file can be downloaded.`
+                : missing.length
+                  ? `${pid} needs at least ${MIN_PER_TARGET} of every target before their file can be downloaded. Still needed: ` +
+                    missing.map(c => `${c.name} ${MIN_PER_TARGET - (counts[c.id] || 0)}`).join(', ') +
+                    '. "Download all" always works as a backup.'
+                  : `${pid} has at least ${MIN_PER_TARGET} of every target. Download the file and send it to the team.`}
+            </p>
             <div className="flex flex-wrap gap-2">
-              <Button size="md" variant="secondary" disabled={!mine.length}
+              <Button size="md" variant="secondary" disabled={!canDownloadMine}
                 onClick={() => download(`airscribe_${pid}_${stamp()}.json`, mine)}>
                 Download {pid || 'participant'}
               </Button>
