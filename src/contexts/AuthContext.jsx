@@ -29,6 +29,11 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const data = await apiLogin(email, password)
+    if (!data || !data.token || !['patient', 'clinician'].includes(data.role)) {
+      // Show what came back (never the token) instead of silently breaking navigation
+      throw new Error(`Unexpected login response from the server (role: ${JSON.stringify(data?.role)}, ` +
+        `fields: ${Object.keys(data || {}).join(', ') || 'none'}). Check VITE_API_URL points to the AirScribe backend.`)
+    }
     const userData = {
       email,
       role: data.role,
@@ -40,7 +45,10 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (email, password, role) => {
     const data = await apiRegister(email, password, role)
-    const userData = { email, role, name: email.split('@')[0] }
+    if (!data || !data.token) {
+      throw new Error('Unexpected sign-up response from the server. Check VITE_API_URL points to the AirScribe backend.')
+    }
+    const userData = { email, role: data.role || role, name: data.name || email.split('@')[0] }
     persistSession(data.token, userData)
     return userData
   }, [persistSession])
