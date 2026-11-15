@@ -1,6 +1,8 @@
-#  AirScribe - Air-Writing Rehabilitation
+#  AirScribe - Physiotherapy Exercise Assistant
 
-A browser-based hand rehabilitation game for stroke patients. Write letters in the air with your index finger while a webcam tracks your movement in real time — no video ever leaves your device.
+A webcam-based assistant for physiotherapists. Patients practise hand-movement exercises at home and clinicians follow their progress remotely. The first module trains **fine motor control and eye–hand coordination** through air-drawing exercises (lines, shapes, then letters), for people with motor and coordination difficulties after a stroke, in neurodegenerative diseases such as Parkinson's and Alzheimer's disease, and in neurodevelopmental disorders. The webcam tracks the index fingertip in the browser — no video ever leaves the device — and a deep learning model recognises each movement and scores its accuracy and smoothness.
+
+The exercise focus comes from a consultation with a physiotherapist. AirScribe supports therapy; it is not a medical device and does not diagnose.
 
 ---
 
@@ -185,4 +187,4 @@ Set `VITE_API_URL` and optionally `VITE_USE_MOCK` as environment variables in th
 
 ## Medical disclaimer
 
-AirScribe is a rehabilitation **support tool**, not a medical device. It is not intended to diagnose, treat, cure, or prevent any disease or medical condition. Always consult a qualified healthcare provider.
+AirScribe is an **exercise assistant** for physiotherapy, not a medical device. It is not intended to diagnose, treat, cure, or prevent any disease or medical condition. Always consult a qualified healthcare provider.

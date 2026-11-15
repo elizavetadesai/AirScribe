@@ -42,8 +42,9 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="AirScribe API", version="0.2.0", lifespan=lifespan,
-              description="Air-drawing recognition and movement scoring for home stroke rehabilitation. "
-                          "Rehabilitation support tool, not a medical device.")
+              description="Physiotherapy exercise assistant: air-drawing recognition and movement scoring for fine motor "
+                          "control and eye-hand coordination exercises (stroke, neurodegenerative and "
+                          "neurodevelopmental conditions). Not a medical device.")
 
 
 @app.middleware("http")

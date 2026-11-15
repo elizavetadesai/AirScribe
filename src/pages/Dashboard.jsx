@@ -9,7 +9,7 @@ import { LetterHeatmap } from '../components/charts/LetterHeatmap'
 import { StreakBadge } from '../components/charts/StreakBadge'
 import { LETTERS } from '../config/targets'
 
-const DISCLAIMER = 'AirScribe is a rehabilitation support tool, not a medical device.'
+const DISCLAIMER = 'AirScribe is an exercise assistant for physiotherapy, not a medical device.'
 const WEEKLY_GOAL = 10
 
 function computeStreak(sessions) {

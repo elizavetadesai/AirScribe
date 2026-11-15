@@ -94,7 +94,7 @@ export default function Settings() {
       <Section heading="Medical disclaimer">
         <div className="border-l-4 border-sand-400 pl-5 py-1">
           <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-            <strong className="text-[var(--color-text)]">AirScribe is a rehabilitation support tool, not a medical device.</strong> It is not intended to diagnose, treat, cure, or prevent any disease or medical condition, and it is not a substitute for professional medical advice. Always seek the advice of a qualified health provider.
+            <strong className="text-[var(--color-text)]">AirScribe is an exercise assistant for physiotherapy, not a medical device.</strong> It is not intended to diagnose, treat, cure, or prevent any disease or medical condition, and it is not a substitute for professional medical advice. Always seek the advice of a qualified health provider.
           </p>
         </div>
       </Section>

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Alert } from '../components/ui/Alert'
 
-const DISCLAIMER = 'AirScribe is a rehabilitation support tool, not a medical device. It is not a substitute for professional medical advice, diagnosis, or treatment.'
+const DISCLAIMER = 'AirScribe supports physiotherapy exercises at home. It is not a medical device and not a substitute for professional medical advice, diagnosis, or treatment.'
 
 export default function Auth() {
   const [mode, setMode] = useState('login')
@@ -48,7 +48,7 @@ export default function Auth() {
             Rehabilitation<br />through motion.
           </h1>
           <p className="text-forest-300 text-sm leading-relaxed max-w-xs">
-            Draw shapes and letters in the air with your index finger. Your browser tracks every movement — privately, in real time, without recording any video.
+            Home exercises for fine motor control and eye–hand coordination after a stroke and in neurodegenerative or neurodevelopmental conditions, followed by your physiotherapist. Draw shapes and letters in the air with your index finger — your browser tracks every movement privately, without recording any video.
           </p>
         </div>
         <p className="text-xs text-forest-500 leading-relaxed max-w-xs">
