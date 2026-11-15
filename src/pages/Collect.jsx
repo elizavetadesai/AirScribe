@@ -93,7 +93,9 @@ export default function Collect() {
   const [storageError, setStorageError] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [assigned, setAssigned] = useState(prefs.assigned || '') // ID the server gave this browser
+  const [myIds, setMyIds] = useState(() => (Array.isArray(prefs.myIds) ? prefs.myIds : (prefs.assigned ? [prefs.assigned] : [])))
   const [assigning, setAssigning] = useState(false)
+  const [confirmNew, setConfirmNew] = useState(false) // two-step "New participant"
   const [idError, setIdError] = useState(null)
   const [uploadError, setUploadError] = useState(null)
   const samplesRef = useRef(samples)
@@ -110,9 +112,9 @@ export default function Collect() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ participant, hand, note, goal, code, assigned }))
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ participant, hand, note, goal, code, assigned, myIds }))
     } catch { /* ignore */ }
-  }, [participant, hand, note, goal, code, assigned])
+  }, [participant, hand, note, goal, code, assigned, myIds])
 
   const pid = participant.trim().toUpperCase()
   // In upload mode only drawings recorded under the server-given ID count (a typed "P01" from
@@ -158,6 +160,7 @@ export default function Collect() {
     try {
       const r = await collectNewParticipant(code)
       setAssigned(r.participant_id)
+      setMyIds(prev => (prev.includes(r.participant_id) ? prev : [...prev, r.participant_id]))
       setParticipant(r.participant_id)
       setConsent(false)
       setManualTarget('')
@@ -179,6 +182,24 @@ export default function Collect() {
     else assignId()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadMode])
+
+  // Go back to an ID this browser was given earlier (accidental "New participant", or finishing later)
+  function switchParticipant(id) {
+    if (!id || id === assigned) return
+    setAssigned(id)
+    setParticipant(id)
+    setConsent(false)
+    setManualTarget('')
+    setMessage({ variant: 'info', text: `Switched to ${id}. Tick consent to continue.` })
+  }
+
+  // IDs this browser has used: the remembered list plus any found in saved drawings
+  const knownIds = useMemo(() => {
+    const ids = new Set(myIds)
+    samples.forEach(x => { if (x.serverId === true && SERVER_ID.test(x.participant)) ids.add(x.participant) })
+    return [...ids].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+  }, [myIds, samples])
+  const countFor = id => samples.filter(x => x.participant === id && x.serverId === true).length
 
   // ── Upload mode: send saved drawings, one at a time, retrying until done ──
   const syncUploads = useCallback(async () => {
@@ -388,10 +409,39 @@ export default function Collect() {
               </p>
             )}
             {uploadMode && (
-              <div className="mt-3">
-                <Button size="md" variant="secondary" disabled={assigning || phase !== 'idle'} onClick={assignId}>
-                  New participant
-                </Button>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                {!confirmNew ? (
+                  <Button size="md" variant="secondary" disabled={assigning || phase !== 'idle'}
+                    onClick={() => setConfirmNew(true)}>
+                    New participant
+                  </Button>
+                ) : (
+                  <>
+                    <Button size="md" disabled={assigning || phase !== 'idle'}
+                      onClick={() => { setConfirmNew(false); assignId() }}>
+                      Yes, a different person
+                    </Button>
+                    <Button size="md" variant="secondary" onClick={() => setConfirmNew(false)}>
+                      Cancel
+                    </Button>
+                  </>
+                )}
+                {confirmNew && (
+                  <p className="text-xs text-[var(--color-muted)] w-full">
+                    {pid ? `${pid}'s drawings are already saved. ` : ''}Only start a new participant when a different
+                    person is going to draw. The same person should keep their ID.
+                  </p>
+                )}
+                {knownIds.length > 1 && !confirmNew && (
+                  <label className="text-xs text-[var(--color-muted)] space-y-1">
+                    <span>Switch participant</span>
+                    <select value={assigned} disabled={phase !== 'idle'}
+                      onChange={e => { switchParticipant(e.target.value); e.target.blur() }}
+                      className="w-full h-11 px-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]">
+                      {knownIds.map(id => <option key={id} value={id}>{id} ({countFor(id)} saved)</option>)}
+                    </select>
+                  </label>
+                )}
               </div>
             )}
           </Card>
