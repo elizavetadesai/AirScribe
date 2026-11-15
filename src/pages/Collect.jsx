@@ -350,7 +350,8 @@ export default function Collect() {
                 <span>{uploadMode ? 'Anonymous ID (given by the server)' : 'Anonymous ID (e.g. P01)'}</span>
                 <input value={participant} onChange={e => setParticipant(e.target.value)} maxLength={12}
                   readOnly={uploadMode} placeholder={assigning ? 'Getting an ID…' : ''}
-                  className="w-full h-11 px-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] uppercase" />
+                  tabIndex={uploadMode ? -1 : undefined} aria-readonly={uploadMode || undefined}
+                  className={`w-full h-11 px-3 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] uppercase${uploadMode ? ' pointer-events-none select-none' : ''}`} />
               </label>
               <label className="text-xs text-[var(--color-muted)] space-y-1">
                 <span>Drawing hand</span>
